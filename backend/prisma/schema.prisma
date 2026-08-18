@@ -1,0 +1,311 @@
+// This is your Prisma schema file for the School Management System
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Admin {
+  id                    String   @id @default(cuid())
+  name                  String
+  email                 String   @unique
+  passwordHash          String
+  avatar                String?
+  phone                 String?
+  signPhoto             String?  // base64 signature image
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Custom School Settings
+  schoolName            String   @default("My School")
+  schoolAddress         String   @default("")
+  schoolPhone           String   @default("")
+  signatoryName         String   @default("Principal")
+  defaultMonthlyAmount  Float    @default(5000)
+
+  // Relations
+  notices               Notice[]
+  activityLogs          ActivityLog[]
+  students              Student[]
+  fees                  Fee[]
+  complaints            Complaint[]
+  visitors              Visitor[]
+  staff                 Staff[]
+  exams                 Exam[]
+  timetables            Timetable[]
+  books                 Book[]
+  transportRoutes       TransportRoute[]
+
+  @@map("admins")
+}
+
+model Student {
+  id               String   @id @default(cuid())
+  adminId          String
+  firstName        String
+  lastName         String
+  email            String
+  phone            String
+  dateOfBirth      DateTime
+  gender           String   @default("Male") // Male, Female, Other
+  rollNumber       String   @unique
+  className        String
+  address          String?
+  parentName       String?
+  parentPhone      String?
+  parentEmail      String?
+  emergencyContact String?
+  admissionDate    DateTime @default(now())
+  status           String   @default("Active") // Active, Inactive, Suspended, Graduated
+  photo            String?
+  documents        String?  // JSON array of document URLs
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Transport Route Relation
+  transportRouteId String?
+  transportRoute   TransportRoute? @relation(fields: [transportRouteId], references: [id], onDelete: SetNull)
+
+  admin            Admin           @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  fees             Fee[]
+  complaints       Complaint[]
+  visitors         Visitor[]
+  marks            Mark[]
+  bookIssues       BookIssue[]
+
+  @@map("students")
+}
+
+model Fee {
+  id            String    @id @default(cuid())
+  adminId       String
+  studentId     String
+  type          String    @default("Tuition") // Tuition, Admission, Exam, Sports, Library, Other
+  amount        Float
+  paidAmount    Float     @default(0)
+  discount      Float     @default(0)
+  fine          Float     @default(0)
+  dueDate       DateTime?
+  paidAt        DateTime?
+  paymentMode   String?   // Cash, UPI, Bank Transfer, Cheque
+  transactionId String?
+  receiptNumber String?
+  notes         String?
+  status        String    @default("Pending") // Pending, Paid, Partial, Overdue
+  month         Int?
+  year          Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  admin         Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("fees")
+}
+
+model Staff {
+  id           String    @id @default(cuid())
+  adminId      String
+  name         String
+  email        String?
+  phone        String
+  designation  String    // Teacher, Principal, Admin, Accountant, Security, Helper, Other
+  department   String?
+  salary       Float     @default(0)
+  joiningDate  DateTime  @default(now())
+  address      String?
+  photo        String?
+  status       String    @default("Active") // Active, Inactive, OnLeave
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  admin        Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  salaryPayouts SalaryPayout[]
+
+  @@map("staff")
+}
+
+model Notice {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  category    String   @default("General") // General, Urgent, Academic, Holiday, Event
+  targetGroup String   @default("All")     // All, Students, Staff, Grade 9, Grade 10, etc.
+  pinned      Boolean  @default(false)
+  publishedAt DateTime @default(now())
+  expiresAt   DateTime?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admin       Admin    @relation(fields: [createdBy], references: [id])
+
+  @@map("notices")
+}
+
+model Complaint {
+  id          String    @id @default(cuid())
+  adminId     String
+  studentId   String
+  title       String
+  description String
+  category    String    @default("General") // Academic, Facilities, Fees, Behavior, Other
+  priority    String    @default("Medium") // Low, Medium, High, Urgent
+  status      String    @default("Pending") // Pending, InProgress, Resolved, Closed
+  assignedTo  String?
+  resolvedAt  DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  admin       Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("complaints")
+}
+
+model Visitor {
+  id          String    @id @default(cuid())
+  adminId     String
+  studentId   String
+  name        String
+  phone       String
+  relation    String    @default("Parent") // Parent, Guardian, Relative, Friend, Other
+  purpose     String?
+  idProof     String?
+  checkIn     DateTime  @default(now())
+  checkOut    DateTime?
+  status      String    @default("CheckedIn") // CheckedIn, CheckedOut
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  admin       Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("visitors")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  module    String   // Students, Staff, Fees, Notices, etc.
+  action    String   // Created, Updated, Deleted, etc.
+  detail    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  admin     Admin    @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model Exam {
+  id        String   @id @default(cuid())
+  adminId   String
+  title     String   // e.g. Midterm Exams
+  term      String   // e.g. Term 1
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  marks     Mark[]
+
+  @@map("exams")
+}
+
+model Mark {
+  id            String   @id @default(cuid())
+  studentId     String
+  examId        String
+  subjectName   String
+  marksObtained Float
+  maxMarks      Float
+  grade         String
+  remarks       String?
+  createdAt     DateTime @default(now())
+
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam          Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@map("marks")
+}
+
+model Timetable {
+  id          String   @id @default(cuid())
+  adminId     String
+  className   String   // e.g. Grade 10-A
+  day         String   // e.g. Monday
+  subjectName String
+  teacherName String
+  startTime   String   // e.g. 09:00
+  endTime     String   // e.g. 09:45
+  createdAt   DateTime @default(now())
+
+  admin       Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("timetables")
+}
+
+model Book {
+  id        String   @id @default(cuid())
+  adminId   String
+  title     String
+  author    String
+  isbn      String?
+  status    String   @default("Available") // Available, Issued
+  createdAt DateTime @default(now())
+
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  issues    BookIssue[]
+
+  @@map("books")
+}
+
+model BookIssue {
+  id         String    @id @default(cuid())
+  bookId     String
+  studentId  String
+  issueDate  DateTime  @default(now())
+  dueDate    DateTime
+  returnDate DateTime?
+  fineAmount Float     @default(0)
+  createdAt  DateTime  @default(now())
+
+  book       Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("book_issues")
+}
+
+model TransportRoute {
+  id            String    @id @default(cuid())
+  adminId       String
+  vehicleNumber String
+  routeName     String
+  driverName    String
+  driverPhone   String
+  monthlyCharge Float     @default(0)
+  createdAt     DateTime  @default(now())
+
+  admin         Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  students      Student[]
+
+  @@map("transport_routes")
+}
+
+model SalaryPayout {
+  id          String   @id @default(cuid())
+  staffId     String
+  amount      Float
+  paymentMode String   // Cash, UPI, Bank Transfer
+  month       Int
+  year        Int
+  paidAt      DateTime @default(now())
+
+  staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("salary_payouts")
+}
