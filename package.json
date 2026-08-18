@@ -1,0 +1,10 @@
+{
+  "name": "school-manager-root",
+  "version": "1.0.0",
+  "description": "School Management Application Root Package",
+  "scripts": {
+    "postinstall": "cd frontend && npm install && cd ../backend && npm install",
+    "build": "cd backend && npx prisma generate && cd ../frontend && npm run build",
+    "start": "cd backend && node src/server.js"
+  }
+}
