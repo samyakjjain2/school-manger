@@ -37,7 +37,7 @@ const PORT = process.env.PORT || 5000;
 // Security Fix 1: Trust Reverse Proxy on Render/Heroku for accurate IP Rate Limiting
 app.set('trust proxy', 1);
 
-// Security Fix 2: Strict Content Security Policy (No unsafe-inline or unsafe-eval in scripts)
+// Security Fix 2: Content Security Policy & Security Headers via Helmet
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -58,23 +58,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// Security Fix 4: Rate Limiter for Authentication (prevents password brute-force attacks)
+// Security Fix 4: Global Rate Limiter applied to ALL routes (including root /)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 150, // Limit each IP to 150 requests per 15 minutes
+  message: { success: false, message: 'Too many requests from this IP. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: true
+});
+
+// Security Fix 5: Strict Rate Limiter for Authentication (prevents password brute-force attacks)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // Limit each IP to 20 authentication requests per 15 minutes
   message: { success: false, message: 'Too many authentication attempts from this IP. Please try again after 15 minutes.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: true
 });
 
-// Security Fix 5: Rate Limiter for General API calls
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // Limit each IP to 300 requests per 15 minutes
-  message: { success: false, message: 'Too many requests from this IP. Please slow down.' },
-  standardHeaders: true,
-  legacyHeaders: false
-});
+// Apply global rate limiting across all incoming requests
+app.use(globalLimiter);
 
 // Security Fix 6: Prevent HTTP Parameter Pollution
 app.use(hpp());
@@ -128,10 +131,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Security: Apply rate limiters to sensitive endpoints
+// Security: Apply strict rate limiter to authentication endpoints
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
-app.use('/api/', apiLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
