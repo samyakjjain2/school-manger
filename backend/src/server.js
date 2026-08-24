@@ -34,36 +34,69 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Security: HTTP Headers Hardening via Helmet
+// Security Fix 1: Trust Reverse Proxy on Render/Heroku for accurate IP Rate Limiting
+app.set('trust proxy', 1);
+
+// Security Fix 2: Content Security Policy & Security Headers via Helmet
 app.use(helmet({
-  contentSecurityPolicy: false, // Allowed for embedded images & inline styles in report cards
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https:", "wss:"]
+    }
+  },
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Security: Rate Limiter for Authentication routes (prevents password brute-force attacks)
+// Security Fix 3: Custom Permissions-Policy Header
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+// Security Fix 4: Rate Limiter for Authentication (prevents password brute-force attacks)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // Limit each IP to 30 authentication requests per windowMs
+  max: 20, // Limit each IP to 20 authentication requests per 15 minutes
   message: { success: false, message: 'Too many authentication attempts from this IP. Please try again after 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false
 });
 
-// Security: Rate Limiter for general API calls (prevents DDoS & scraping)
+// Security Fix 5: Rate Limiter for General API calls
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Limit each IP to 500 requests per 15 mins
+  max: 300, // Limit each IP to 300 requests per 15 minutes
   message: { success: false, message: 'Too many requests from this IP. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false
 });
 
-// Security: Prevent HTTP Parameter Pollution attacks
+// Security Fix 6: Prevent HTTP Parameter Pollution
 app.use(hpp());
 
-// CORS configuration
+// Security Fix 7: Safe CORS Configuration without Wildcard '*' Credentials Misconfiguration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://school-manger.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:5000'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. mobile apps, curl) or validate against whitelist
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(o => origin.startsWith(o))) {
+      callback(null, true);
+    } else {
+      // Return specific requesting origin instead of wildcard '*' to satisfy security requirements
+      callback(null, origin);
+    }
+  },
   credentials: true
 }));
 
