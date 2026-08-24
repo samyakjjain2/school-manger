@@ -37,12 +37,12 @@ const PORT = process.env.PORT || 5000;
 // Security Fix 1: Trust Reverse Proxy on Render/Heroku for accurate IP Rate Limiting
 app.set('trust proxy', 1);
 
-// Security Fix 2: Content Security Policy & Security Headers via Helmet
+// Security Fix 2: Strict Content Security Policy (No unsafe-inline or unsafe-eval in scripts)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
