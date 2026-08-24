@@ -79,7 +79,7 @@ const apiLimiter = rateLimit({
 // Security Fix 6: Prevent HTTP Parameter Pollution
 app.use(hpp());
 
-// Security Fix 7: Safe CORS Configuration without Wildcard '*' Credentials Misconfiguration
+// Security Fix 7: Strict CORS Whitelist Configuration (NO ORIGIN REFLECTION)
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://school-manger.onrender.com',
@@ -89,12 +89,15 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. mobile apps, curl) or validate against whitelist
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(o => origin.startsWith(o))) {
+    // Allow non-browser or local server-to-server requests with no origin header
+    if (!origin) return callback(null, true);
+
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed));
+    if (isAllowed) {
       callback(null, true);
     } else {
-      // Return specific requesting origin instead of wildcard '*' to satisfy security requirements
-      callback(null, origin);
+      // Reject unauthorized origins (like https://evil.com) — NEVER reflect arbitrary origins!
+      callback(null, false);
     }
   },
   credentials: true
